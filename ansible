@@ -1,0 +1,60 @@
+---
+- name: install nginx
+  hosts: host
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt: update_cache=yes cache_valid_time=3600
+    - name: Upgrade all apt packages
+      apt: upgrade=dist
+    - name: Install dependencies
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+        - curl 
+        - gnupg2 
+        - ca-certificates 
+        - ubuntu-keyring
+        - mc
+    - name: Add keys for nginx
+      apt_key:
+        url: https://nginx.org/keys/nginx_signing.key
+        state: present
+    - name: Add apt repository for stable version
+      apt_repository:
+        repo: "deb [arch=amd64] http://nginx.org/packages/ubuntu focal nginx"
+        state: present
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+    - name: Paste config
+      blockinfile:
+        create: true
+        path: /etc/nginx/conf.d/default.conf
+        block: |
+            server {
+                listen       80;
+                server_name  localhost;
+                location / {
+                    root   /usr/share/nginx/html;
+                    index  index.html index.htm;
+                }
+                error_page   500 502 503 504  /50x.html;
+                location = /50x.html {
+                    root   /usr/share/nginx/html;
+                    }
+            }
+        backup: yes    
+
+    - name: Check NGINX configs
+      shell: "/usr/sbin/nginx -t"
+      register: nginx_config_status
+    - name: NGINX test status
+      debug:
+        msg: "{{ nginx_config_status }}"
+    
